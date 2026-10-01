@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>聚餐账单计算器</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 30px 15px;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: #f5f6f8;
+      color: #222;
+    }
+
+    .container {
+      max-width: 850px;
+      margin: auto;
+      background: white;
+      padding: 28px;
+      border-radius: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+    }
+
+    .description {
+      color: #666;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+
+    .person {
+      display: grid;
+      grid-template-columns: 150px 1fr 100px 45px;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      border-radius: 7px;
+      font-size: 15px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #555;
+    }
+
+    .subtotal {
+      text-align: right;
+      font-weight: bold;
+    }
+
+    button {
+      border: none;
+      padding: 10px 15px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .add-button {
+      margin-top: 8px;
+      background: #eee;
+    }
+
+    .remove-button {
+      background: #eee;
+      font-size: 18px;
+      padding: 7px;
+    }
+
+    .bill-info {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 15px;
+    }
+
+    .calculate-button {
+      margin-top: 15px;
+      width: 100%;
+      background: #222;
+      color: white;
+      font-size: 17px;
+      padding: 13px;
+    }
+
+    .calculate-button:hover {
+      background: #444;
+    }
+
+    #summary {
+      margin-top: 25px;
+    }
+
+    .summary-box {
+      background: #f4f4f4;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      line-height: 1.8;
+    }
+
+    .result {
+      display: grid;
+      grid-template-columns: 1fr 130px 130px;
+      gap: 10px;
+      padding: 12px 8px;
+      border-bottom: 1px solid #eee;
+      align-items: center;
+    }
+
+    .result-header {
+      font-weight: bold;
+      color: #666;
+    }
+
+    .final-price {
+      font-size: 19px;
+      font-weight: bold;
+      text-align: right;
+    }
+
+    .taxed-price {
+      text-align: right;
+    }
+
+    .warning {
+      color: #c62828;
+      margin-top: 15px;
+    }
+
+    @media (max-width: 650px) {
+      .person {
+        grid-template-columns: 1fr 45px;
+      }
+
+      .person-name,
+      .dish-input,
+      .subtotal {
+        grid-column: 1;
+      }
+
+      .remove-button {
+        grid-column: 2;
+        grid-row: 1 / 4;
+      }
+
+      .subtotal {
+        text-align: left;
+      }
+
+      .input-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+
+      .result {
+        grid-template-columns: 1fr;
+      }
+
+      .final-price,
+      .taxed-price {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>🍽️ 聚餐账单计算器</h1>
+
+  <div class="description">
+    每个人可以输入多个菜价，例如：
+    <b>12.99, 8.50, 4</b>。
+    <br>
+    税费按照个人菜价比例分摊，小费由所有人平均分摊。
+  </div>
+
+  <div id="people"></div>
+
+  <button class="add-button" onclick="addPerson()">＋ 添加一人</button>
+
+  <div class="bill-info">
+
+    <div class="input-row">
+      <label>税后菜价总额（不含小费）</label>
+      <input
+        type="number"
+        id="afterTax"
+        min="0"
+        step="0.01"
+        placeholder="例如 128.54"
+      >
+    </div>
+
+    <div class="input-row">
+      <label>总小费</label>
+      <input
+        type="number"
+        id="tip"
+        min="0"
+        step="0.01"
+        placeholder="例如 20"
+      >
+    </div>
+
+    <button class="calculate-button" onclick="calculate()">
+      计算每人应付
+    </button>
+
+  </div>
+
+  <div id="summary"></div>
+</div>
+
+
+<script>
+
+let personCount = 0;
+
+
+function addPerson(name = "", dishes = "") {
+
+  personCount++;
+
+  const people = document.getElementById("people");
+
+  const div = document.createElement("div");
+
+  div.className = "person";
+
+  div.innerHTML = `
+    <input
+      class="person-name"
+      type="text"
+      placeholder="姓名 / Person ${personCount}"
+      value="${name}"
+    >
+
+    <input
+      class="dish-input"
+      type="text"
+      placeholder="菜价，例如 12.99, 8.5, 4"
+      value="${dishes}"
+      oninput="updateSubtotals()"
+    >
+
+    <div class="subtotal">$0.00</div>
+
+    <button
+      class="remove-button"
+      onclick="removePerson(this)"
+      title="删除"
+    >
+      ×
+    </button>
+  `;
+
+  people.appendChild(div);
+
+  updateSubtotals();
+}
+
+
+function removePerson(button) {
+
+  const rows = document.querySelectorAll(".person");
+
+  if (rows.length <= 1) {
+    alert("至少需要一个人。");
+    return;
+  }
+
+  button.parentElement.remove();
+
+  updateSubtotals();
+}
+
+
+function parseDishPrices(text) {
+
+  /*
+    支持：
+    12, 5.5, 8
+    12 5.5 8
+    12+5.5+8
+    12，5.5，8
+  */
+
+  const parts = text
+    .replace(/，/g, ",")
+    .split(/[,\s+]+/)
+    .filter(Boolean);
+
+  let total = 0;
+
+  for (const part of parts) {
+
+    const value = parseFloat(part);
+
+    if (!isNaN(value) && value >= 0) {
+      total += value;
+    }
+
+  }
+
+  return total;
+}
+
+
+function updateSubtotals() {
+
+  const rows = document.querySelectorAll(".person");
+
+  rows.forEach(row => {
+
+    const input = row.querySelector(".dish-input");
+
+    const subtotal = parseDishPrices(input.value);
+
+    row.querySelector(".subtotal").textContent =
+      "$" + subtotal.toFixed(2);
+
+  });
+
+}
+
+
+function calculate() {
+
+  const rows = [...document.querySelectorAll(".person")];
+
+  const afterTax =
+    parseFloat(document.getElementById("afterTax").value);
+
+  const tip =
+    parseFloat(document.getElementById("tip").value) || 0;
+
+
+  if (isNaN(afterTax) || afterTax <= 0) {
+
+    alert("请输入正确的税后菜价总额。");
+
+    return;
+  }
+
+
+  const people = rows.map((row, index) => {
+
+    const nameInput =
+      row.querySelector(".person-name").value.trim();
+
+    const dishesInput =
+      row.querySelector(".dish-input").value;
+
+    return {
+
+      name: nameInput || `Person ${index + 1}`,
+
+      subtotal: parseDishPrices(dishesInput)
+
+    };
+
+  });
+
+
+  const preTaxTotal = people.reduce(
+    (sum, person) => sum + person.subtotal,
+    0
+  );
+
+
+  if (preTaxTotal <= 0) {
+
+    alert("请至少输入一个有效菜价。");
+
+    return;
+  }
+
+
+  const numberOfPeople = people.length;
+
+  const tipPerPerson = tip / numberOfPeople;
+
+  const taxAmount = afterTax - preTaxTotal;
+
+  const grandTotal = afterTax + tip;
+
+
+  let html = `
+
+    <div class="summary-box">
+
+      <b>账单汇总</b><br>
+
+      税前菜价：
+      $${preTaxTotal.toFixed(2)}
+      <br>
+
+      税费：
+      $${taxAmount.toFixed(2)}
+      <br>
+
+      税后菜价：
+      $${afterTax.toFixed(2)}
+      <br>
+
+      总小费：
+      $${tip.toFixed(2)}
+      <br>
+
+      人数：
+      ${numberOfPeople}
+      <br>
+
+      每人平分小费：
+      $${tipPerPerson.toFixed(2)}
+      <br>
+
+      <b>
+        最终总金额：
+        $${grandTotal.toFixed(2)}
+      </b>
+
+    </div>
+
+
+    <div class="result result-header">
+
+      <div>姓名</div>
+
+      <div>含税菜价</div>
+
+      <div>最终应付</div>
+
+    </div>
+
+  `;
+
+
+  people.forEach(person => {
+
+    /*
+      公式：
+
+      含税个人菜价 =
+      个人税前菜价 / 税前总菜价 × 税后总菜价
+
+      最终金额 =
+      含税个人菜价 + 总小费 / 人数
+    */
+
+
+    const taxedFood =
+      person.subtotal /
+      preTaxTotal *
+      afterTax;
+
+
+    const finalAmount =
+      taxedFood +
+      tipPerPerson;
+
+
+    html += `
+
+      <div class="result">
+
+        <div>
+          <b>${escapeHTML(person.name)}</b>
+          <br>
+          <small>
+            税前：$${person.subtotal.toFixed(2)}
+          </small>
+        </div>
+
+        <div class="taxed-price">
+          $${taxedFood.toFixed(2)}
+        </div>
+
+        <div class="final-price">
+          $${finalAmount.toFixed(2)}
+        </div>
+
+      </div>
+
+    `;
+
+  });
+
+
+  /*
+    检查由于小数显示带来的 rounding 差异
+  */
+
+  const displayedTotal =
+    people.reduce((sum, person) => {
+
+      const taxedFood =
+        person.subtotal /
+        preTaxTotal *
+        afterTax;
+
+      return sum +
+        Math.round(
+          (taxedFood + tipPerPerson) * 100
+        ) / 100;
+
+    }, 0);
+
+
+  const difference =
+    Math.round(
+      (displayedTotal - grandTotal) * 100
+    ) / 100;
+
+
+  if (Math.abs(difference) >= 0.01) {
+
+    html += `
+
+      <div class="warning">
+
+        注意：由于每人金额四舍五入到美分，
+        各人显示金额相加可能与最终账单相差
+        $${Math.abs(difference).toFixed(2)}。
+
+      </div>
+
+    `;
+
+  }
+
+
+  document.getElementById("summary").innerHTML = html;
+
+}
+
+
+function escapeHTML(text) {
+
+  const div = document.createElement("div");
+
+  div.textContent = text;
+
+  return div.innerHTML;
+
+}
+
+
+/*
+  默认三个人
+*/
+
+addPerson();
+
+addPerson();
+
+addPerson();
+
+</script>
+
+</body>
+</html>
