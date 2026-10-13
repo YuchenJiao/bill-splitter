@@ -1,14 +1,14 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f6f8">
   <title>聚餐账单计算器</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -27,10 +27,8 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     }
 
-    h1 {
-      margin-top: 0;
-      font-size: 28px;
-    }
+    h1 { margin-top: 0; font-size: 28px; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
 
     .description {
       color: #666;
@@ -59,9 +57,14 @@
       border-color: #555;
     }
 
+    input.input-error {
+      border-color: #b42318;
+    }
+
     .subtotal {
       text-align: right;
       font-weight: bold;
+      white-space: nowrap;
     }
 
     button {
@@ -83,10 +86,30 @@
       padding: 7px;
     }
 
-    .bill-info {
-      margin-top: 30px;
+    .section {
+      margin-top: 28px;
       padding-top: 20px;
       border-top: 1px solid #ddd;
+    }
+
+    .shared-box {
+      padding: 18px;
+      background: #f7f8fa;
+      border-radius: 10px;
+    }
+
+    .shared-box p {
+      margin: 0 0 12px;
+      color: #666;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .shared-row {
+      display: grid;
+      grid-template-columns: 1fr 100px;
+      gap: 12px;
+      align-items: center;
     }
 
     .input-row {
@@ -119,7 +142,7 @@
       padding: 15px;
       border-radius: 8px;
       margin-bottom: 15px;
-      line-height: 1.8;
+      line-height: 1.85;
     }
 
     .result {
@@ -146,12 +169,28 @@
       text-align: right;
     }
 
+    .detail {
+      color: #666;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
     .warning {
-      color: #c62828;
+      color: #b42318;
       margin-top: 15px;
+      line-height: 1.5;
+    }
+
+    .note {
+      color: #666;
+      font-size: 13px;
+      margin-top: 12px;
+      line-height: 1.5;
     }
 
     @media (max-width: 650px) {
+      .container { padding: 19px; }
+
       .person {
         grid-template-columns: 1fr 45px;
       }
@@ -167,422 +206,607 @@
         grid-row: 1 / 4;
       }
 
-      .subtotal {
-        text-align: left;
-      }
+      .subtotal { text-align: left; }
 
       .input-row {
         grid-template-columns: 1fr;
         gap: 5px;
       }
 
-      .result {
+      .shared-row {
         grid-template-columns: 1fr;
       }
 
-      .final-price,
-      .taxed-price {
-        text-align: left;
+      .result {
+        grid-template-columns: 1fr 1fr;
       }
+
+      .result .person-result {
+        grid-column: 1 / -1;
+      }
+
+      .result-header {
+        display: none;
+      }
+
+      .taxed-price { text-align: left; }
+      .final-price { text-align: right; }
     }
   </style>
 </head>
 
 <body>
+  <main class="container">
+    <h1>🍽️ 聚餐账单计算器</h1>
 
-<div class="container">
-  <h1>🍽️ 聚餐账单计算器</h1>
+    <p class="description">
+      每个人可以输入多个菜价，例如
+      <b>12.99, 8.50, 4</b>。<br>
+      Shared 菜品由所有人平分；
+      税费按菜价比例分摊，小费按人数平分。
+    </p>
 
-  <div class="description">
-    每个人可以输入多个菜价，例如：
-    <b>12.99, 8.50, 4</b>。
-    <br>
-    税费按照个人菜价比例分摊，小费由所有人平均分摊。
-  </div>
-
-  <div id="people"></div>
-
-  <button class="add-button" onclick="addPerson()">＋ 添加一人</button>
-
-  <div class="bill-info">
-
-    <div class="input-row">
-      <label>税后菜价总额（不含小费）</label>
-      <input
-        type="number"
-        id="afterTax"
-        min="0"
-        step="0.01"
-        placeholder="例如 128.54"
-      >
-    </div>
-
-    <div class="input-row">
-      <label>总小费</label>
-      <input
-        type="number"
-        id="tip"
-        min="0"
-        step="0.01"
-        placeholder="例如 20"
-      >
-    </div>
-
-    <button class="calculate-button" onclick="calculate()">
-      计算每人应付
-    </button>
-
-  </div>
-
-  <div id="summary"></div>
-</div>
-
-
-<script>
-
-let personCount = 0;
-
-
-function addPerson(name = "", dishes = "") {
-
-  personCount++;
-
-  const people = document.getElementById("people");
-
-  const div = document.createElement("div");
-
-  div.className = "person";
-
-  div.innerHTML = `
-    <input
-      class="person-name"
-      type="text"
-      placeholder="姓名 / Person ${personCount}"
-      value="${name}"
-    >
-
-    <input
-      class="dish-input"
-      type="text"
-      placeholder="菜价，例如 12.99, 8.5, 4"
-      value="${dishes}"
-      oninput="updateSubtotals()"
-    >
-
-    <div class="subtotal">$0.00</div>
+    <div id="people"></div>
 
     <button
-      class="remove-button"
-      onclick="removePerson(this)"
-      title="删除"
+      class="add-button"
+      type="button"
+      id="addPerson"
     >
-      ×
+      ＋ 添加一人
     </button>
-  `;
 
-  people.appendChild(div);
+    <section class="section shared-box">
+      <h2>🍲 全员平分菜价（Shared Dishes）</h2>
 
-  updateSubtotals();
-}
+      <p>
+        填写所有人一起分享的菜品税前价格。
+        支持多个菜价，例如 15.99, 8.50。
+        留空表示没有 Shared 菜。
+      </p>
+
+      <div class="shared-row">
+        <input
+          id="sharedDishes"
+          type="text"
+          inputmode="decimal"
+          placeholder="共同菜价，例如 15.99, 8.50"
+          aria-label="共同菜价"
+        >
+
+        <div id="sharedSubtotal" class="subtotal">
+          $0.00
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="input-row">
+        <label for="afterTax">
+          税后菜价总额（不含小费）
+        </label>
+
+        <input
+          type="number"
+          id="afterTax"
+          min="0"
+          step="0.01"
+          placeholder="例如 128.54"
+        >
+      </div>
+
+      <div class="input-row">
+        <label for="tip">总小费</label>
+
+        <input
+          type="number"
+          id="tip"
+          min="0"
+          step="0.01"
+          placeholder="例如 20（不填则为 0）"
+        >
+      </div>
+
+      <button
+        class="calculate-button"
+        type="button"
+        id="calculate"
+      >
+        计算每人应付
+      </button>
+    </section>
+
+    <div id="summary" aria-live="polite"></div>
+  </main>
+
+  <script>
+    "use strict";
+
+    let personCount = 0;
+
+    const peopleElement =
+      document.getElementById("people");
+
+    const summaryElement =
+      document.getElementById("summary");
+
+    const sharedInput =
+      document.getElementById("sharedDishes");
+
+    const sharedSubtotal =
+      document.getElementById("sharedSubtotal");
+
+    const afterTaxInput =
+      document.getElementById("afterTax");
+
+    const tipInput =
+      document.getElementById("tip");
 
 
-function removePerson(button) {
-
-  const rows = document.querySelectorAll(".person");
-
-  if (rows.length <= 1) {
-    alert("至少需要一个人。");
-    return;
-  }
-
-  button.parentElement.remove();
-
-  updateSubtotals();
-}
-
-
-function parseDishPrices(text) {
-
-  /*
-    支持：
-    12, 5.5, 8
-    12 5.5 8
-    12+5.5+8
-    12，5.5，8
-  */
-
-  const parts = text
-    .replace(/，/g, ",")
-    .split(/[,\s+]+/)
-    .filter(Boolean);
-
-  let total = 0;
-
-  for (const part of parts) {
-
-    const value = parseFloat(part);
-
-    if (!isNaN(value) && value >= 0) {
-      total += value;
+    // 所有金额使用整数美分存储
+    function money(cents) {
+      return "$" + (cents / 100).toFixed(2);
     }
 
-  }
 
-  return total;
-}
+    function parseAmount(raw) {
+      const value = raw.trim().replace(/^\$/, "");
 
+      if (!/^\d+(?:\.\d{1,2})?$/.test(value)) {
+        throw new Error(
+          "金额格式不正确：" + raw +
+          "。请使用最多两位小数的非负金额。"
+        );
+      }
 
-function updateSubtotals() {
+      const [dollars, decimal = ""] = value.split(".");
 
-  const rows = document.querySelectorAll(".person");
+      const cents =
+        Number(dollars) * 100 +
+        Number(decimal.padEnd(2, "0"));
 
-  rows.forEach(row => {
+      if (!Number.isSafeInteger(cents)) {
+        throw new Error("输入金额过大。");
+      }
 
-    const input = row.querySelector(".dish-input");
-
-    const subtotal = parseDishPrices(input.value);
-
-    row.querySelector(".subtotal").textContent =
-      "$" + subtotal.toFixed(2);
-
-  });
-
-}
-
-
-function calculate() {
-
-  const rows = [...document.querySelectorAll(".person")];
-
-  const afterTax =
-    parseFloat(document.getElementById("afterTax").value);
-
-  const tip =
-    parseFloat(document.getElementById("tip").value) || 0;
+      return cents;
+    }
 
 
-  if (isNaN(afterTax) || afterTax <= 0) {
+    // 支持逗号、空格、加号分隔多个菜价
+    function parseDishPrices(text) {
+      const raw = text.trim();
 
-    alert("请输入正确的税后菜价总额。");
+      if (!raw) return 0;
 
-    return;
-  }
+      const parts = raw
+        .split(/[,，+\s]+/)
+        .filter(Boolean);
 
+      const total = parts.reduce(
+        (sum, part) => sum + parseAmount(part),
+        0
+      );
 
-  const people = rows.map((row, index) => {
+      if (!Number.isSafeInteger(total)) {
+        throw new Error("菜价总额过大。");
+      }
 
-    const nameInput =
-      row.querySelector(".person-name").value.trim();
-
-    const dishesInput =
-      row.querySelector(".dish-input").value;
-
-    return {
-
-      name: nameInput || `Person ${index + 1}`,
-
-      subtotal: parseDishPrices(dishesInput)
-
-    };
-
-  });
+      return total;
+    }
 
 
-  const preTaxTotal = people.reduce(
-    (sum, person) => sum + person.subtotal,
-    0
-  );
+    function markInput(input, valid) {
+      input.classList.toggle("input-error", !valid);
+    }
 
 
-  if (preTaxTotal <= 0) {
-
-    alert("请至少输入一个有效菜价。");
-
-    return;
-  }
+    function resetResults() {
+      summaryElement.replaceChildren();
+    }
 
 
-  const numberOfPeople = people.length;
+    // 更新每个人和 Shared 菜品的小计
+    function updateSubtotals() {
+      const rows =
+        peopleElement.querySelectorAll(".person");
 
-  const tipPerPerson = tip / numberOfPeople;
+      for (const row of rows) {
+        const input = row.querySelector(".dish-input");
+        const subtotal = row.querySelector(".subtotal");
 
-  const taxAmount = afterTax - preTaxTotal;
+        try {
+          subtotal.textContent =
+            money(parseDishPrices(input.value));
 
-  const grandTotal = afterTax + tip;
+          markInput(input, true);
+        } catch (e) {
+          subtotal.textContent = "输入有误";
+          markInput(input, false);
+        }
+      }
 
+      try {
+        sharedSubtotal.textContent =
+          money(parseDishPrices(sharedInput.value));
 
-  let html = `
-
-    <div class="summary-box">
-
-      <b>账单汇总</b><br>
-
-      税前菜价：
-      $${preTaxTotal.toFixed(2)}
-      <br>
-
-      税费：
-      $${taxAmount.toFixed(2)}
-      <br>
-
-      税后菜价：
-      $${afterTax.toFixed(2)}
-      <br>
-
-      总小费：
-      $${tip.toFixed(2)}
-      <br>
-
-      人数：
-      ${numberOfPeople}
-      <br>
-
-      每人平分小费：
-      $${tipPerPerson.toFixed(2)}
-      <br>
-
-      <b>
-        最终总金额：
-        $${grandTotal.toFixed(2)}
-      </b>
-
-    </div>
+        markInput(sharedInput, true);
+      } catch (e) {
+        sharedSubtotal.textContent = "输入有误";
+        markInput(sharedInput, false);
+      }
+    }
 
 
-    <div class="result result-header">
+    // 添加一个人
+    function addPerson() {
+      personCount++;
 
-      <div>姓名</div>
+      const row = document.createElement("div");
+      row.className = "person";
 
-      <div>含税菜价</div>
+      row.innerHTML = `
+        <input
+          class="person-name"
+          type="text"
+          placeholder="姓名 / Person ${personCount}"
+          aria-label="姓名"
+        >
 
-      <div>最终应付</div>
+        <input
+          class="dish-input"
+          type="text"
+          inputmode="decimal"
+          placeholder="个人菜价，例如 12.99, 8.5, 4"
+          aria-label="个人菜价"
+        >
 
-    </div>
+        <div class="subtotal">$0.00</div>
 
-  `;
+        <button
+          class="remove-button"
+          type="button"
+          title="删除此人"
+        >
+          ×
+        </button>
+      `;
 
+      row.querySelector(".remove-button")
+        .addEventListener("click", () => {
+          if (
+            peopleElement.querySelectorAll(".person").length <= 1
+          ) {
+            alert("至少需要一个人。");
+            return;
+          }
 
-  people.forEach(person => {
+          row.remove();
+          updateSubtotals();
+          resetResults();
+        });
+
+      row.addEventListener("input", () => {
+        updateSubtotals();
+        resetResults();
+      });
+
+      peopleElement.appendChild(row);
+      resetResults();
+    }
+
 
     /*
-      公式：
+      按权重分配整数美分。
 
-      含税个人菜价 =
-      个人税前菜价 / 税前总菜价 × 税后总菜价
+      先向下取整，再把剩余美分
+      分配给小数余数最大的人。
 
-      最终金额 =
-      含税个人菜价 + 总小费 / 人数
+      保证所有分配金额之和
+      严格等于目标金额。
     */
+    function allocateByWeight(targetCents, weights) {
+      const totalWeight = weights.reduce(
+        (sum, w) => sum + w,
+        0
+      );
+
+      const exact = weights.map(
+        w => targetCents * w / totalWeight
+      );
+
+      const allocated = exact.map(Math.floor);
+
+      let remainder =
+        targetCents -
+        allocated.reduce((sum, n) => sum + n, 0);
+
+      const order = exact.map((value, i) => ({
+        i,
+        fractional: value - allocated[i]
+      })).sort(
+        (a, b) =>
+          b.fractional - a.fractional ||
+          a.i - b.i
+      );
+
+      for (let i = 0; i < remainder; i++) {
+        allocated[order[i].i]++;
+      }
+
+      return allocated;
+    }
 
 
-    const taxedFood =
-      person.subtotal /
-      preTaxTotal *
-      afterTax;
+    // 计算每人应付金额
+    function calculate() {
+      try {
+        if (!afterTaxInput.value.trim()) {
+          throw new Error("请输入税后菜价总额。");
+        }
+
+        const afterTax =
+          parseAmount(afterTaxInput.value);
+
+        const tip = tipInput.value.trim()
+          ? parseAmount(tipInput.value)
+          : 0;
+
+        if (afterTax <= 0) {
+          throw new Error(
+            "税后菜价总额必须大于 0。"
+          );
+        }
+
+        const rows = [
+          ...peopleElement.querySelectorAll(".person")
+        ];
+
+        const people = rows.map((row, index) => ({
+          name:
+            row.querySelector(".person-name").value.trim() ||
+            `Person ${index + 1}`,
+
+          own: parseDishPrices(
+            row.querySelector(".dish-input").value
+          )
+        }));
+
+        // Shared 菜品总额
+        const shared =
+          parseDishPrices(sharedInput.value);
+
+        // 所有个人菜价合计
+        const ownTotal = people.reduce(
+          (sum, p) => sum + p.own,
+          0
+        );
+
+        // 全桌税前菜价
+        const preTaxTotal = ownTotal + shared;
+
+        if (!Number.isSafeInteger(preTaxTotal)) {
+          throw new Error("菜价总额过大。");
+        }
+
+        if (preTaxTotal <= 0) {
+          throw new Error(
+            "请至少输入一个有效菜价（个人或 Shared）。"
+          );
+        }
+
+        const count = people.length;
+
+        /*
+          每个人的税前消费权重：
+
+          个人菜价 + Shared菜价 / 人数
+        */
+        const weights = people.map(
+          p => p.own + shared / count
+        );
+
+        /*
+          按税前消费权重分摊税后菜价。
+          已包含 Shared 菜和税费。
+        */
+        const taxedFood =
+          allocateByWeight(afterTax, weights);
+
+        /*
+          小费按人数平分。
+          不能整除的美分依次分配。
+        */
+        const tipBase = Math.floor(tip / count);
+        const tipRemainder = tip % count;
+
+        const tips = people.map(
+          (_, i) =>
+            tipBase + (i < tipRemainder ? 1 : 0)
+        );
+
+        const grandTotal = afterTax + tip;
+
+        if (!Number.isSafeInteger(grandTotal)) {
+          throw new Error("账单总额过大。");
+        }
+
+        summaryElement.replaceChildren();
+
+        // 显示汇总
+        const box = document.createElement("div");
+        box.className = "summary-box";
+
+        box.innerHTML = `
+          <b>账单汇总</b><br>
+
+          个人菜价合计：
+          ${money(ownTotal)}<br>
+
+          Shared 菜价合计：
+          ${money(shared)}<br>
+
+          税前菜价总额：
+          ${money(preTaxTotal)}<br>
+
+          税费：
+          ${money(afterTax - preTaxTotal)}<br>
+
+          税后菜价总额：
+          ${money(afterTax)}<br>
+
+          总小费：
+          ${money(tip)}<br>
+
+          人数：
+          ${count}<br>
+
+          每人 Shared 菜价：
+          ${money(shared / count)}（税前，约）<br>
+
+          每人小费：
+          ${money(tip / count)}（约）<br>
+
+          <b>
+            最终总金额：
+            ${money(grandTotal)}
+          </b>
+        `;
+
+        summaryElement.appendChild(box);
 
 
-    const finalAmount =
-      taxedFood +
-      tipPerPerson;
+        // 结果表头
+        const header = document.createElement("div");
+        header.className = "result result-header";
+
+        header.innerHTML = `
+          <div>姓名</div>
+          <div>含税菜价</div>
+          <div>最终应付</div>
+        `;
+
+        summaryElement.appendChild(header);
 
 
-    html += `
+        // 每个人的结算结果
+        let sum = 0;
 
-      <div class="result">
+        people.forEach((p, index) => {
+          const final = taxedFood[index] + tips[index];
 
-        <div>
-          <b>${escapeHTML(person.name)}</b>
-          <br>
-          <small>
-            税前：$${person.subtotal.toFixed(2)}
-          </small>
-        </div>
+          sum += final;
 
-        <div class="taxed-price">
-          $${taxedFood.toFixed(2)}
-        </div>
+          const result = document.createElement("div");
+          result.className = "result";
 
-        <div class="final-price">
-          $${finalAmount.toFixed(2)}
-        </div>
+          // 姓名和税前明细
+          const nameCol = document.createElement("div");
+          nameCol.className = "person-result";
 
-      </div>
+          const title = document.createElement("b");
+          title.textContent = p.name;
 
-    `;
+          nameCol.appendChild(title);
 
-  });
+          const detail = document.createElement("div");
+          detail.className = "detail";
 
+          detail.textContent =
+            `个人：${money(p.own)} + ` +
+            `Shared：${money(shared / count)}` +
+            `（税前，约）`;
 
-  /*
-    检查由于小数显示带来的 rounding 差异
-  */
-
-  const displayedTotal =
-    people.reduce((sum, person) => {
-
-      const taxedFood =
-        person.subtotal /
-        preTaxTotal *
-        afterTax;
-
-      return sum +
-        Math.round(
-          (taxedFood + tipPerPerson) * 100
-        ) / 100;
-
-    }, 0);
+          nameCol.appendChild(detail);
 
 
-  const difference =
-    Math.round(
-      (displayedTotal - grandTotal) * 100
-    ) / 100;
+          // 含税菜价和小费
+          const taxedCol = document.createElement("div");
+          taxedCol.className = "taxed-price";
+
+          taxedCol.textContent =
+            money(taxedFood[index]);
+
+          const tipDetail = document.createElement("div");
+          tipDetail.className = "detail";
+
+          tipDetail.textContent =
+            `小费：${money(tips[index])}`;
+
+          taxedCol.appendChild(tipDetail);
 
 
-  if (Math.abs(difference) >= 0.01) {
+          // 最终应付金额
+          const totalCol = document.createElement("div");
+          totalCol.className = "final-price";
 
-    html += `
+          totalCol.textContent = money(final);
 
-      <div class="warning">
+          result.append(
+            nameCol,
+            taxedCol,
+            totalCol
+          );
 
-        注意：由于每人金额四舍五入到美分，
-        各人显示金额相加可能与最终账单相差
-        $${Math.abs(difference).toFixed(2)}。
-
-      </div>
-
-    `;
-
-  }
-
-
-  document.getElementById("summary").innerHTML = html;
-
-}
+          summaryElement.appendChild(result);
+        });
 
 
-function escapeHTML(text) {
+        // 校验最终总额
+        if (sum !== grandTotal) {
+          throw new Error(
+            "账单金额校验失败，请刷新后重试。"
+          );
+        }
 
-  const div = document.createElement("div");
+        if (
+          shared % count !== 0 ||
+          tip % count !== 0
+        ) {
+          const note = document.createElement("p");
+          note.className = "note";
 
-  div.textContent = text;
+          note.textContent =
+            "注：无法整除的美分按固定顺序分配，" +
+            "因此所有人实际付款金额相加，" +
+            "始终严格等于账单总额。";
 
-  return div.innerHTML;
+          summaryElement.appendChild(note);
+        }
 
-}
+      } catch (e) {
+        summaryElement.replaceChildren();
+
+        const warning = document.createElement("div");
+        warning.className = "warning";
+
+        warning.textContent = e.message;
+
+        summaryElement.appendChild(warning);
+      }
+    }
 
 
-/*
-  默认三个人
-*/
+    // 绑定按钮与输入事件
+    document.getElementById("addPerson")
+      .addEventListener("click", addPerson);
 
-addPerson();
+    document.getElementById("calculate")
+      .addEventListener("click", calculate);
 
-addPerson();
+    sharedInput.addEventListener("input", () => {
+      updateSubtotals();
+      resetResults();
+    });
 
-addPerson();
+    afterTaxInput.addEventListener("input", resetResults);
+    tipInput.addEventListener("input", resetResults);
 
-</script>
 
+    // 默认创建三个人
+    addPerson();
+    addPerson();
+    addPerson();
+  </script>
 </body>
 </html>
